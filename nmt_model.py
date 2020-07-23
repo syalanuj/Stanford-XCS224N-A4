@@ -68,7 +68,7 @@ class NMT(nn.Module):
         ###     Dropout Layer:
         ###         https://pytorch.org/docs/stable/nn.html#torch.nn.Dropout
 
-        self.encoder = nn.LSTM(input_size=embed_size,hidden_size=hidden_size,bias=True,dropout=dropout_rate,bidirectional=True)
+        self.encoder = nn.LSTM(input_size=embed_size,hidden_size=hidden_size,bias=True,bidirectional=True)
         self.decoder = nn.LSTMCell(embed_size + self.hidden_size, self.hidden_size, bias = True)
         self.h_projection = nn.Linear(2*hidden_size, hidden_size, bias=False)
         self.c_projection = nn.Linear(2*hidden_size, hidden_size, bias=False)
@@ -239,17 +239,19 @@ class NMT(nn.Module):
         ###     Tensor Stacking:
         ###         https://pytorch.org/docs/stable/torch.html#torch.stack
 
-        ### END YOUR CODE
         enc_hiddens_proj = self.att_projection(enc_hiddens)
-        # print(enc_hiddens.size(),enc_hiddens_proj.size())
-        Y = self.model_embeddings.source(target_padded)
-        for Y_t in torch.split(Y, 1, dim=0):
-            Y_t_s = torch.squeeze(Y_t)
-            Ybar_t = torch.cat((o_prev,Y_t_s),1)
-            dec_state,o_t,e_t = self.step(Ybar_t,dec_state,enc_hiddens,enc_hiddens_proj,enc_masks)
+        Y = self.model_embeddings.target(target_padded)
+
+        for Y_t in torch.split(Y, split_size_or_sections = 1, dim = 0):
+            squeezed_Y_t = torch.squeeze(Y_t)
+            Ybar_t = torch.cat((squeezed_Y_t,o_prev), dim = 1)
+            dec_state, o_t, _ = self.step(Ybar_t,dec_state,enc_hiddens,enc_hiddens_proj,enc_masks)
             combined_outputs.append(o_t)
             o_prev = o_t
-        combined_outputs =torch.stack(combined_outputs, dim=0, out=None) 
+        combined_outputs = torch.stack(combined_outputs,dim = 0)
+        ### END YOUR CODE
+        
+
         return combined_outputs
 
     def step(self, Ybar_t: torch.Tensor,
